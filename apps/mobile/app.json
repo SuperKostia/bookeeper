@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "BooKeeper",
+    "slug": "bookeeper",
+    "scheme": "bookeeper",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0E2B1A"
+    },
+    "ios": {
+      "bundleIdentifier": "fr.bookeeper.app",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "fr.bookeeper.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0E2B1A"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

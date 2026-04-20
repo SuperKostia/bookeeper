@@ -1,0 +1,241 @@
+// BooKeeper — Prisma schema
+// Maps the data model defined in SPEC.md §6.3.
+// Money stored in cents (Int). Dates in UTC (timestamptz).
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// --------------------------------------------------------------------------
+// Users
+// --------------------------------------------------------------------------
+
+enum UserRole {
+  client
+  keeper
+  both
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  phone     String   @unique
+  email     String?  @unique
+  firstName String?
+  role      UserRole @default(client)
+  bannedAt  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  keeperProfile  KeeperProfile?
+  bookingsAsClient Booking[] @relation("ClientBookings")
+  bookingsAsKeeper Booking[] @relation("KeeperBookings")
+  reviewsAuthored  Review[]  @relation("ReviewAuthor")
+  reviewsReceived  Review[]  @relation("ReviewTarget")
+  messages         Message[]
+  disputes         Dispute[]
+
+  @@map("users")
+}
+
+// --------------------------------------------------------------------------
+// Keeper profile
+// --------------------------------------------------------------------------
+
+model KeeperProfile {
+  userId           String    @id @db.Uuid
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName      String
+  photoUrl         String?
+  bio              String?
+  hourlyRateCents  Int
+  levels           String[]  // ['R1','R2','National','Loisir',...]
+  badges           String[]  // ['verified','veteran','top5']
+  verifiedAt       DateTime?
+  travelRadiusKm   Int       @default(15)
+  stripeAccountId  String?   @unique
+  // Geo point stored as PostGIS geography; Prisma keeps it as Unsupported.
+  homePoint        Unsupported("geography(Point, 4326)")?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  availabilities   Availability[]
+
+  @@map("keeper_profiles")
+}
+
+// --------------------------------------------------------------------------
+// Availabilities (recurring weekly + one-off slots)
+// --------------------------------------------------------------------------
+
+enum AvailabilityKind {
+  recurring
+  one_off
+}
+
+model Availability {
+  id        String           @id @default(uuid()) @db.Uuid
+  keeperId  String           @db.Uuid
+  keeper    KeeperProfile    @relation(fields: [keeperId], references: [userId], onDelete: Cascade)
+  kind      AvailabilityKind
+  dayOfWeek Int?             // 0–6, only if recurring
+  startTime String?          // "HH:mm", only if recurring
+  endTime   String?          // "HH:mm", only if recurring
+  dateStart DateTime?        // only if one_off
+  dateEnd   DateTime?        // only if one_off
+  createdAt DateTime         @default(now())
+
+  @@index([keeperId])
+  @@map("availabilities")
+}
+
+// --------------------------------------------------------------------------
+// Bookings
+// --------------------------------------------------------------------------
+
+enum BookingContext {
+  loisir
+  competition
+  training
+  tournament
+}
+
+enum BookingStatus {
+  pending
+  accepted
+  declined
+  expired
+  cancelled_client
+  cancelled_keeper
+  completed
+  disputed
+}
+
+model Booking {
+  id               String         @id @default(uuid()) @db.Uuid
+  clientId         String         @db.Uuid
+  client           User           @relation("ClientBookings", fields: [clientId], references: [id])
+  keeperId         String         @db.Uuid
+  keeper           User           @relation("KeeperBookings", fields: [keeperId], references: [id])
+
+  startsAt         DateTime
+  durationMinutes  Int
+  locationPoint    Unsupported("geography(Point, 4326)")
+  locationText     String
+
+  context          BookingContext
+  level            String
+
+  hourlyRateCents  Int
+  serviceFeeCents  Int
+  totalCents       Int
+  status           BookingStatus  @default(pending)
+
+  stripePaymentIntentId String? @unique
+
+  createdAt        DateTime       @default(now())
+  acceptedAt       DateTime?
+  completedAt      DateTime?
+
+  reviews          Review[]
+  messages         Message[]
+  disputes         Dispute[]
+
+  @@index([clientId])
+  @@index([keeperId])
+  @@index([status])
+  @@map("bookings")
+}
+
+// --------------------------------------------------------------------------
+// Reviews
+// --------------------------------------------------------------------------
+
+model Review {
+  id        String   @id @default(uuid()) @db.Uuid
+  bookingId String   @unique @db.Uuid
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  authorId  String   @db.Uuid
+  author    User     @relation("ReviewAuthor", fields: [authorId], references: [id])
+  targetId  String   @db.Uuid
+  target    User     @relation("ReviewTarget", fields: [targetId], references: [id])
+  rating    Int      // 1-5, validated at API layer
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@index([targetId])
+  @@map("reviews")
+}
+
+// --------------------------------------------------------------------------
+// Messages (chat 1-1, unlocked after booking accepted)
+// --------------------------------------------------------------------------
+
+model Message {
+  id        String   @id @default(uuid()) @db.Uuid
+  bookingId String   @db.Uuid
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  senderId  String   @db.Uuid
+  sender    User     @relation(fields: [senderId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([bookingId, createdAt])
+  @@map("messages")
+}
+
+// --------------------------------------------------------------------------
+// Payouts (Stripe transfers to keepers)
+// --------------------------------------------------------------------------
+
+enum PayoutStatus {
+  pending
+  in_transit
+  paid
+  failed
+}
+
+model Payout {
+  id                String       @id @default(uuid()) @db.Uuid
+  keeperId          String       @db.Uuid
+  amountCents       Int
+  stripeTransferId  String?      @unique
+  status            PayoutStatus @default(pending)
+  paidAt            DateTime?
+  createdAt         DateTime     @default(now())
+
+  @@index([keeperId])
+  @@map("payouts")
+}
+
+// --------------------------------------------------------------------------
+// Disputes
+// --------------------------------------------------------------------------
+
+enum DisputeReason {
+  no_show
+  quality
+  behaviour
+  other
+}
+
+model Dispute {
+  id         String        @id @default(uuid()) @db.Uuid
+  bookingId  String        @db.Uuid
+  booking    Booking       @relation(fields: [bookingId], references: [id])
+  openedById String        @db.Uuid
+  openedBy   User          @relation(fields: [openedById], references: [id])
+  reason     DisputeReason
+  details    String?
+  resolution String?
+  resolvedAt DateTime?
+  createdAt  DateTime      @default(now())
+
+  @@map("disputes")
+}
