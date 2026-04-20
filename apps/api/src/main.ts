@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -10,9 +10,7 @@ async function bootstrap() {
     new FastifyAdapter({ trustProxy: true, logger: false }),
   );
 
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-  );
+  // Validation is done per-endpoint via ZodValidationPipe + @bookeeper/types schemas.
   app.enableCors({ origin: true, credentials: true });
 
   const port = Number(process.env.PORT) || 3001;
