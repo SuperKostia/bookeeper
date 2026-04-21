@@ -17,7 +17,7 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
 
-  sendOtp(phone: string): Promise<void> {
+  sendOtp(phone: string): Promise<{ devCode: string | null }> {
     return this.otp.send(phone);
   }
 

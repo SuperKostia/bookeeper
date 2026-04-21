@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
-import * as SecureStore from 'expo-secure-store';
 import type { User } from '@bookeeper/types';
+import { storage } from './storage';
 
 const TOKEN_KEY = 'bookeeper.token';
 
@@ -25,11 +25,11 @@ function subscribe(l: () => void) {
 
 export async function getToken(): Promise<string | null> {
   if (state.status === 'authenticated') return state.token;
-  return SecureStore.getItemAsync(TOKEN_KEY);
+  return storage.get(TOKEN_KEY);
 }
 
 export async function loadFromStorage(): Promise<void> {
-  const token = await SecureStore.getItemAsync(TOKEN_KEY);
+  const token = await storage.get(TOKEN_KEY);
   if (!token) {
     state = { status: 'unauthenticated' };
   } else {
@@ -41,13 +41,13 @@ export async function loadFromStorage(): Promise<void> {
 }
 
 export async function setAuthed(user: User, token: string) {
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
+  await storage.set(TOKEN_KEY, token);
   state = { status: 'authenticated', user, token };
   emit();
 }
 
 export async function signOut() {
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
+  await storage.del(TOKEN_KEY);
   state = { status: 'unauthenticated' };
   emit();
 }

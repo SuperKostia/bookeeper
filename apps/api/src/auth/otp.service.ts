@@ -35,17 +35,24 @@ export class OtpService {
     }
   }
 
-  async send(phone: string): Promise<void> {
+  /**
+   * Returns the generated code **only** in dev stub mode. In real Twilio mode
+   * returns null — the code is never exposed. The API surfaces `devCode` back
+   * to the client only when Twilio is not configured, so the mobile app can
+   * display it in a dev banner.
+   */
+  async send(phone: string): Promise<{ devCode: string | null }> {
     if (this.client && this.verifySid) {
       await this.client.verify.v2
         .services(this.verifySid)
         .verifications.create({ to: phone, channel: 'sms' });
-      return;
+      return { devCode: null };
     }
 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     this.devStore.set(phone, { code, expiresAt: Date.now() + this.TTL_MS });
     this.logger.log(`[DEV OTP] phone=${phone} code=${code}`);
+    return { devCode: code };
   }
 
   async verify(phone: string, code: string): Promise<void> {

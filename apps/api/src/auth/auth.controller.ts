@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { SendOtpSchema, VerifyOtpSchema, type SendOtpInput, type VerifyOtpInput } from '@bookeeper/types';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser, type AuthContext } from '../common/decorators/current-user.decorator';
@@ -15,9 +15,8 @@ export class AuthController {
 
   @Public()
   @Post('send-otp')
-  @HttpCode(204)
   async sendOtp(@Body(new ZodValidationPipe(SendOtpSchema)) body: SendOtpInput) {
-    await this.auth.sendOtp(body.phone);
+    return this.auth.sendOtp(body.phone);
   }
 
   @Public()

@@ -16,15 +16,20 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:reset": "prisma migrate reset",
+    "seed": "tsx prisma/seed.ts",
     "studio": "prisma studio",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf node_modules dist .turbo"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0"
   },
   "devDependencies": {
     "prisma": "^5.22.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.2"
   }
 }

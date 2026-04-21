@@ -37,8 +37,11 @@ export default function PhoneScreen() {
     setError(null);
     setLoading(true);
     try {
-      await sendOtp(phone);
-      router.push({ pathname: '/(auth)/otp', params: { phone } });
+      const res = await sendOtp(phone);
+      router.push({
+        pathname: '/(auth)/otp',
+        params: { phone, devCode: res.devCode ?? '' },
+      });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Impossible d\'envoyer le code.');
     } finally {

@@ -20,13 +20,23 @@ const LEN = 6;
 
 export default function OtpScreen() {
   const router = useRouter();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { phone, devCode: initialDevCode } = useLocalSearchParams<{
+    phone: string;
+    devCode?: string;
+  }>();
 
   const [digits, setDigits] = useState<string[]>(Array.from({ length: LEN }, () => ''));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const [devCode, setDevCode] = useState<string>(initialDevCode ?? '');
   const inputs = useRef<Array<TextInput | null>>([]);
+
+  function fillDevCode() {
+    if (!devCode) return;
+    setDigits(devCode.split('').slice(0, LEN));
+    void submit(devCode);
+  }
 
   function onChange(i: number, v: string) {
     const clean = v.replace(/\D/g, '').slice(0, LEN);
@@ -82,7 +92,8 @@ export default function OtpScreen() {
     setResending(true);
     setError(null);
     try {
-      await sendOtp(phone);
+      const res = await sendOtp(phone);
+      if (res.devCode) setDevCode(res.devCode);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Impossible de renvoyer.');
     } finally {
@@ -122,6 +133,14 @@ export default function OtpScreen() {
 
           {loading ? <ActivityIndicator color={colors.volt} style={{ marginTop: spacing.md }} /> : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          {devCode ? (
+            <Pressable style={styles.devBanner} onPress={fillDevCode}>
+              <Text style={styles.devLabel}>DEV MODE · TWILIO NON CONFIGURÉ</Text>
+              <Text style={styles.devCode}>{devCode}</Text>
+              <Text style={styles.devHint}>Tape pour remplir automatiquement ↑</Text>
+            </Pressable>
+          ) : null}
 
           <View style={styles.footer}>
             <Pressable onPress={() => router.back()}>
@@ -182,4 +201,24 @@ const styles = StyleSheet.create({
   },
   link: { color: colors.volt, fontSize: fontSizes.sm, fontWeight: '600' },
   linkMuted: { color: colors.cream, opacity: 0.5, fontSize: fontSizes.sm },
+  devBanner: {
+    marginTop: spacing.xl,
+    padding: spacing.md,
+    backgroundColor: 'rgba(212,255,0,0.1)',
+    borderWidth: 1,
+    borderColor: colors.volt,
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  devLabel: { color: colors.volt, fontSize: 10, letterSpacing: 2, fontWeight: '700' },
+  devCode: {
+    color: colors.cream,
+    fontSize: 34,
+    fontWeight: '800',
+    letterSpacing: 6,
+    marginVertical: 6,
+    fontVariant: ['tabular-nums'],
+  },
+  devHint: { color: colors.cream, opacity: 0.5, fontSize: 11 },
 });
